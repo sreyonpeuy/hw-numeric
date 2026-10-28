@@ -322,19 +322,21 @@ def _karatsuba(a, b):
     >>> _karatsuba([0], [1, 2, 3])
     [0, 0, 0]
     '''
-    a = _trim(list(a))
-    b = _trim(list(b))
+    a = list(a)
+    b = list(b)
 
-    if not a or not b or a == [0] or b == [0]:
-        return [0]
+    if not a or not b:
+        return []
 
+    # Base case
     if len(a) <= 2 or len(b) <= 2:
         out = [0] * (len(a) + len(b) - 1)
         for i, ai in enumerate(a):
             for j, bj in enumerate(b):
                 out[i + j] += ai * bj
-        return _trim(out)
+        return out
 
+    # Split midpoint
     half = max(len(a), len(b)) // 2
 
     a0, a1 = a[:half], a[half:]
@@ -343,37 +345,67 @@ def _karatsuba(a, b):
     z0 = _karatsuba(a0, b0)
     z2 = _karatsuba(a1, b1)
 
+    # Compute sum_a = a0 + a1
     len_sum_a = max(len(a0), len(a1))
-    sum_a = [
-        (a0[i] if i < len(a0) else 0) + (a1[i] if i < len(a1) else 0)
-        for i in range(len_sum_a)
-    ]
+    sum_a = []
+    for i in range(len_sum_a):
+        if i < len(a0):
+            val0 = a0[i]
+        else:
+            val0 = 0
+        if i < len(a1):
+            val1 = a1[i]
+        else:
+            val1 = 0
+        sum_a.append(val0 + val1)
 
+    # Compute sum_b = b0 + b1
     len_sum_b = max(len(b0), len(b1))
-    sum_b = [
-        (b0[i] if i < len(b0) else 0) + (b1[i] if i < len(b1) else 0)
-        for i in range(len_sum_b)
-    ]
-
+    sum_b = []
+    for i in range(len_sum_b):
+        if i < len(b0):
+            val0 = b0[i]
+        else:
+            val0 = 0
+        if i < len(b1):
+            val1 = b1[i]
+        else:
+            val1 = 0
+        sum_b.append(val0 + val1)
     z1 = _karatsuba(sum_a, sum_b)
 
+    # Compute mid = z1 - z0 - z2
     mid_len = max(len(z1), len(z0), len(z2))
     mid = [0] * mid_len
     for i in range(mid_len):
-        v1 = z1[i] if i < len(z1) else 0
-        v0 = z0[i] if i < len(z0) else 0
-        v2 = z2[i] if i < len(z2) else 0
+        if i < len(z1):
+            v1 = z1[i]
+        else:
+            v1 = 0
+        if i < len(z0):
+            v0 = z0[i]
+        else:
+            v0 = 0
+        if i < len(z2):
+            v2 = z2[i]
+        else:
+            v2 = 0
         mid[i] = v1 - v0 - v2
 
-    result = [0] * (len(a) + len(b) - 1)
+    # Reconstruct final list
+    total_len = len(a) + len(b) - 1
+    result = [0] * total_len
+
     for i, v in enumerate(z0):
-        if i < len(result):
+        if i < total_len:
             result[i] += v
+
     for i, v in enumerate(mid):
-        if i + half < len(result):
+        if i + half < total_len:
             result[i + half] += v
+
     for i, v in enumerate(z2):
-        if i + 2 * half < len(result):
+        if i + 2 * half < total_len:
             result[i + 2 * half] += v
 
-    return _trim(result)
+    return result
