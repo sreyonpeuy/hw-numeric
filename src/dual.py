@@ -137,18 +137,16 @@ class Dual:
     4 + 6ε
     '''
     v: object
-    d: object
+    d: object = 0.0
 
-    # implement all the Dunder methods we would need
     def __init__(self, v, d=0.0):
         self.v = v
         self.d = d
 
     def __repr__(self):
-        return f"Dual({self.v!r}, {self.d!r})"
+        return f"Dual(v={self.v!r}, d={self.d!r})"
 
     def __str__(self):
-        # Format self as: v + dε
         return f"{self.v} + {self.d}ε"
 
     def __eq__(self, other):
@@ -179,7 +177,6 @@ class Dual:
 
     def __mul__(self, other):
         if isinstance(other, Dual):
-            # same as product rule in math
             return Dual(self.v * other.v, self.v * other.d + self.d * other.v)
         return Dual(self.v * other, self.d * other)
 
@@ -188,19 +185,43 @@ class Dual:
 
     def __truediv__(self, other):
         if isinstance(other, Dual):
-            # same as quotient rule in math
-            return Dual(self.v / other.v, (self.d * other.v - self.v * other.d) / (other.v ** 2))
+            return Dual(
+                self.v / other.v,
+                (self.d * other.v - self.v * other.d) / (other.v ** 2),
+            )
         return Dual(self.v / other, self.d / other)
 
     def __rtruediv__(self, other):
         return Dual(other / self.v, -other * self.d / (self.v ** 2))
 
     def __pow__(self, power):
-        # Power rule in math
-        return Dual(self.v ** power, power * (self.v ** (power - 1)) * self.d)
+        if isinstance(power, Dual):
+            val = self.v ** power.v
+            if self.v == 0:
+                der = 0.0
+            else:
+                der = val * (
+                    power.d * math.log(self.v) + power.v * self.d / self.v
+                )
+            return Dual(val, der)
+        else:
+            val = self.v ** power
+            if power == 0:
+                der = 0.0
+            else:
+                der = power * (self.v ** (power - 1)) * self.d
+            return Dual(val, der)
+
+    def __rpow__(self, base):
+        val = base ** self.v
+        der = val * math.log(base) * self.d
+        return Dual(val, der)
 
     def __neg__(self):
         return Dual(-self.v, -self.d)
+
+    def __pos__(self):
+        return Dual(+self.v, +self.d)
 
 
 def sin(x):
@@ -234,12 +255,8 @@ def tanh(x):
     >>> tanh(0.0)
     0.0
     '''
-    # this is the only one of these functions you need to implement
-    # there's only one doctest here,
-    # but lots of other tests depend on tanh
     if isinstance(x, Dual):
         t = math.tanh(x.v)
-        # d/dx tanh(x) = (1 - tanh(x)^2) * x.d
         return Dual(t, (1.0 - t ** 2) * x.d)
     return math.tanh(x)
 

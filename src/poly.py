@@ -294,7 +294,6 @@ class Poly:
 
 
 def _trim(coeffs):
-    #need remove trailing zero coefficients as some polynomials would be equal.
     while len(coeffs) > 1 and coeffs[-1] == 0:
         coeffs.pop()
     return coeffs if coeffs else [0]
