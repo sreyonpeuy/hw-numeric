@@ -363,4 +363,3 @@ def _karatsuba(a, b):
             result[i + 2 * half] += v
 
     return result
-

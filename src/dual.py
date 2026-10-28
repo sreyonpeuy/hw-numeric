@@ -236,7 +236,7 @@ def tanh(x):
     # this is the only one of these functions you need to implement
     # there's only one doctest here,
     # but lots of other tests depend on tanh
-    f isinstance(x, Dual):
+    if isinstance(x, Dual):
         t = math.tanh(x.v)
         # d/dx tanh(x) = (1 - tanh(x)^2) * x.d
         return Dual(t, (1.0 - t ** 2) * x.d)
