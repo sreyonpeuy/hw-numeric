@@ -105,6 +105,63 @@ class Poly:
     >>> print(Poly([1, 0, 2]))
     2x**2 + 1
     '''
+    def __init__(self, coeffs):
+        # Copy the coeffs into a list so we don't lose original
+        coeffs = list(coeffs)
+        # adress any trailing zeros that would make certain polynomials equiv
+        while len(coeffs) > 1 and coeffs[-1] == 0:
+            coeffs.pop()
+        self.coeffs = coeffs if coeffs else [0]
+
+    __hash__ = None
+
+    def __repr__(self):
+        return f"Poly({self.coeffs!r})"
+
+    def __str__(self):
+        if self.coeffs == [0]:
+            return "0"
+        terms = []
+        # n degrees written from highest to lowest
+        n = len(self.coeffs) - 1
+        for deg in range(n, -1, -1):
+            c = self.coeffs[deg]
+            if c == 0:
+                continue
+
+            sign = "-" if c < 0 else "+"
+            abs_c = abs(c)
+
+            # x is the variable part of a polynomial
+            if deg == 0:
+                var = ""
+            elif deg == 1:
+                var = "x"
+            else:
+                var = f"x**{deg}"
+
+            # if coeeficient is 1
+            if deg > 0 and abs_c == 1:
+                coef_str = ""
+            else:
+                coef_str = str(abs_c)
+                terms.append((sign, coef_str + var))
+        # write out all the terms in the poly in right format
+        first_sign, first_body = terms[0]
+        res = ("-" + first_body) if first_sign == "-" else first_body
+
+        for sign, body in terms[1:]:
+            res += f" {sign} {body}"
+        return res
+
+    def __eq__(self, other):
+        if isinstance(other, Poly):
+            return self.coeffs == other.coeffs
+        return False
+
+    def __call__(self, x):
+        return self.eval_horner(x)
+
     def eval_naive(self, x):
         '''
         Evaluate by summing a_i * x**i one term at a time.  The
@@ -139,6 +196,37 @@ class Poly:
             total = total * x + c
         return total
 
+    def derivative(self):
+        if len(self.coeffs) <= 1:
+            return Poly([0])
+        d_coeffs = [i * c for i, c in enumerate(self.coeffs)][1:]
+        return Poly(d_coeffs)
+
+    def __add__(self, other):
+        if not isinstance(other, Poly):
+            other = Poly([other])
+        max_len = max(len(self.coeffs), len(other.coeffs))
+        res = [0] * max_len
+        for i in range(max_len):
+            a = self.coeffs[i] if i < len(self.coeffs) else 0
+            b = other.coeffs[i] if i < len(other.coeffs) else 0
+            res[i] = a + b
+        return Poly(res)
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __neg__(self):
+        return Poly([-c for c in self.coeffs])
+
+    def __sub__(self, other):
+        if not isinstance(other, Poly):
+            other = Poly([other])
+        return self + (-other)
+
+    def __rsub__(self, other):
+        return Poly([other]) - self
+
     def mul_naive(self, other):
         '''
         Naive multiplication uses Theta(n**2) multiplications.
@@ -154,6 +242,27 @@ class Poly:
             for j, bj in enumerate(b):
                 out[i + j] += ai * bj
         return Poly(out)
+
+    def __mul__(self, other):
+        if not isinstance(other, Poly):
+            return Poly([c * other for c in self.coeffs])
+        # Use Karatsuba ifit is implemented, or back to mul_naive
+        return Poly(_karatsuba(self.coeffs, other.coeffs))
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __pow__(self, power):
+        if not isinstance(power, int) or power < 0:
+            raise ValueError("Exponent must be a non-negative integer")
+        res = Poly([1])
+        base = self
+        while power > 0:
+            if power % 2 == 1:
+                res = res * base
+            base = base * base
+            power //= 2
+        return res
 
 
 def _karatsuba(a, b):
@@ -179,3 +288,79 @@ def _karatsuba(a, b):
     >>> _karatsuba([0], [1, 2, 3])
     [0, 0, 0]
     '''
+    # Base cases
+    if len(a) <= 4 or len(b) <= 4:
+        out = [0] * (len(a) + len(b) - 1)
+        for i, ai in enumerate(a):
+            for j, bj in enumerate(b):
+                out[i + j] += ai * bj
+        return out
+
+    # length should be equal
+    m = max(len(a), len(b))
+    half = m // 2
+
+    # a = a0 + a1 * x^half
+    a0 = a[:half]
+    a1 = a[half:]
+    b0 = b[:half]
+    b1 = b[half:]
+
+    z0 = _karatsuba(a0, b0)
+    z2 = _karatsuba(a1, b1)
+
+    # (a0 + a1) and (b0 + b1)
+    len_sum_a = max(len(a0), len(a1))
+    sum_a = []
+    for i in range(len_sum_a):
+        if i < len(a0):
+            val0 = a0[i]
+        else:
+            val0 = 0
+
+        if i < len(a1):
+            val1 = a1[i]
+        else:
+            val1 = 0
+
+    sum_a.append(val0 + val1)
+
+    len_sum_b = max(len(b0), len(b1))
+    sum_b = []
+    for i in range(len_sum_b):
+        if i < len(b0):
+            val0 = b0[i]
+        else:
+            val0 = 0
+
+        if i < len(b1):
+            val1 = b1[i]
+        else:
+            val1 = 0
+
+    sum_b.append(val0 + val1)
+
+    z1 = _karatsuba(sum_a, sum_b)
+
+    # z1 - z0 - z2
+    mid = [0] * max(len(z1), max(len(z0), len(z2)))
+    for i in range(len(mid)):
+        v1 = z1[i] if i < len(z1) else 0
+        v0 = z0[i] if i < len(z0) else 0
+        v2 = z2[i] if i < len(z2) else 0
+        mid[i] = v1 - v0 - v2
+
+    # Assemble: z0 + mid * x^half + z2 * x^(2 * half)
+    result = [0] * (len(a) + len(b) - 1)
+    for i, v in enumerate(z0):
+        if i < len(result):
+            result[i] += v
+    for i, v in enumerate(mid):
+        if i + half < len(result):
+            result[i + half] += v
+    for i, v in enumerate(z2):
+        if i + 2 * half < len(result):
+            result[i + 2 * half] += v
+
+    return result
+
